@@ -39,22 +39,23 @@ app.post("/pay", async (req, res) => {
       return res.status(400).json({ error: "Método inválido" });
     }
 
-    if (!/^8\d{8}$/.test(msisdn)) {
-      return res.status(400).json({ error: "Número inválido" });
-    }
+if (!/^(84|85|86|87)\d{7}$/.test(msisdn)) {
+  return res.status(400).json({ error: "Número inválido" });
+}
 
     if (amount < 1) {
       return res.status(400).json({ error: "Valor inválido" });
     }
 
-    // validação por método
-    if (method === "mpesa" && !msisdn.startsWith("85")) {
-      return res.status(400).json({ error: "Mpesa usa números 85..." });
-    }
+const prefix = msisdn.slice(0, 2);
 
-    if (method === "emola" && !msisdn.startsWith("84")) {
-      return res.status(400).json({ error: "eMola usa números 84..." });
-    }
+if (method === "mpesa" && !["84", "85"].includes(prefix)) {
+  return res.status(400).json({ error: "MPesa usa números 84 ou 85" });
+}
+
+if (method === "emola" && !["86", "87"].includes(prefix)) {
+  return res.status(400).json({ error: "eMola usa números 86 ou 87" });
+}
 
     const wallet_id = WALLETS[method];
 
