@@ -10,29 +10,24 @@ app.use(express.json());
 
 // 🔐 ENV
 const TOKEN = process.env.DEBITO_TOKEN;
-const API_KEY = process.env.API_KEY;
 
 // Wallets
 const WALLETS = {
-  mpesa: process.env.WALLET_MPESA, // ex: 122767
-  emola: process.env.WALLET_EMOLA  // ex: 808471
+  mpesa: process.env.WALLET_MPESA,
+  emola: process.env.WALLET_EMOLA
 };
 
 // 🚫 Rate limit
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10
+  max: 5
 });
 
 app.use("/pay", limiter);
 
+// 🚀 Endpoint principal
 app.post("/pay", async (req, res) => {
   try {
-    // 🔐 API KEY check
-    if (req.headers["x-api-key"] !== API_KEY) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
-
     const { msisdn, amount, reference, method } = req.body;
 
     // ✅ validação
@@ -44,7 +39,7 @@ app.post("/pay", async (req, res) => {
       return res.status(400).json({ error: "Método inválido" });
     }
 
-    if (!/^8[45]\d{7}$/.test(msisdn)) {
+    if (!/^8\d{8}$/.test(msisdn)) {
       return res.status(400).json({ error: "Número inválido" });
     }
 
@@ -52,9 +47,20 @@ app.post("/pay", async (req, res) => {
       return res.status(400).json({ error: "Valor inválido" });
     }
 
-    // 🔥 escolha dinâmica
+    // validação por método
+    if (method === "mpesa" && !msisdn.startsWith("85")) {
+      return res.status(400).json({ error: "Mpesa usa números 85..." });
+    }
+
+    if (method === "emola" && !msisdn.startsWith("84")) {
+      return res.status(400).json({ error: "eMola usa números 84..." });
+    }
+
     const wallet_id = WALLETS[method];
+
     const endpoint = `https://my.debito.co.mz/api/v1/wallets/${wallet_id}/c2b/${method}`;
+
+    console.log("🔥 REQUEST:", { msisdn, amount, method });
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -72,17 +78,26 @@ app.post("/pay", async (req, res) => {
 
     const data = await response.json();
 
+    console.log("✅ RESPONSE:", data);
+
     return res.json({
       method,
       ...data
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ ERROR:", err);
     return res.status(500).json({ error: "Erro interno" });
   }
 });
 
-app.listen(3000, () => {
-  console.log("🔥 Proxy running on port 3000");
+// 🔥 Health check (IMPORTANTE pro Render)
+app.get("/", (req, res) => {
+  res.send("API ONLINE 🚀");
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🔥 Server running on port ${PORT}`);
 });
